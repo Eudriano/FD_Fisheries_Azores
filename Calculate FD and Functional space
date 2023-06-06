@@ -1,0 +1,36 @@
+################################################################################
+#                                                                              #
+#                FUNCTIONAL SPACE AND FUNCTIONAL INDICES (FD)                  #
+#                                                                              #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+## NOTES:
+### Trait.Matrix = trait matrix with species in the row and traits in the column.
+### Species.Matrix = biomass of catch matrix with years in the row and species in the column.
+### Coord_Species_4D = contain the position of each species in the four-dimensional functional space
+
+#----- Load function
+source("~/efc/R_Stat/2023_FD_Fisheries/Functions/quality_funct_space.R") #--- Updated version of the Appendix S1 associated to Maire et al. 2015
+source("~/efc/R_Stat/2023_FD_Fisheries/Functions/plot_funct_space.R") #--- Mouillot et al. 2013
+source("~/efc/R_Stat/2023_FD_Fisheries/Functions/multidimFD.R") #--- Mouillot et al. 2013
+
+#----- Calculate Functional space quality   
+qual_funct_space_SPool<-quality_funct_space(Trait.Matrix, traits_weights=NULL, nbdim=10, metric="Gower", dendro=FALSE)
+qual_funct_space_SPool$meanSD 
+qual_funct_space_SPool$details_fspaces
+
+#----- Select the 4D functional space
+Coord_Species_4D<-qual_funct_space_SPool$details_funct_space$mat_coord[,1:4]
+dim(Coord_Species_4D)
+
+#----- Calculate Functional indices
+FD_year<-multidimFD(Coord_Species_4D, Species.Matrix, check_species_pool=TRUE, verb=TRUE,
+                          nm_asb_plot=row.names(Species.Matrix), folder_plot= paste("~/efc/R_Stat/2023_FD_Fisheries/Plots/FD_SPool", sep=""),
+                          Faxes_plot=colnames(Coord_Species_4D)[1:4], Faxes_nm_plot=colnames(Coord_Species_4D)[1:4],
+                          plot_pool=TRUE, col_bg="grey90", col_sp_pool="grey30",  pch_sp_pool="+", cex_sp_pool=1, 
+                          pch_sp=21, col_sp="#1E90FF", transp=50)
+
+round(FD_year,3) # Functional indices values
+
+# References
+# Mouillot, D., Graham, N.A.J., Villéger, S., Mason, N.W.H., Bellwood, D.R. (2013) A functional approach reveals community response to disturbances. Trends in Ecology & Evolution, 28, 167-177. 
+# Maire, E., Grenouillet, G., Brosse, S., Villéger, S. (2015).  How many dimensions are needed to accurately assess functional diversity? A pragmatic approach for assessing the quality of functional spaces. Glob. Ecology and Biogeography 24, 728-740.
