@@ -1,0 +1,93 @@
+################################################################################
+#                                                                              #
+# PLOT FUNCTIONAL SPACE for landed species in the Azores Archipelago           #
+#                                                                              #
+# Figure 4D                                                                    #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+## NOTES:
+### Land_Sp_42Years = Data frame containing the standardized landing data with the years in the columns
+###  				 and species in the rows
+###            
+
+Land_Sp_Year<-read.csv("Land_Sp_42Years.csv",check.names=FALSE,dec=".",sep=";",header=TRUE)
+dim(Land_Sp_Year)
+str(Land_Sp_Year)
+Codes<-Land_Sp_Year[,1] # Assign species to "code"
+
+#-----< Columns to rownames and convert data to data frame
+Land_Sp_YearsZone<-Land_Sp_Year %>% 
+  remove_rownames %>% 
+  column_to_rownames(var="Species") %>% 
+  as.data.frame()
+Land_Sp_YearsZone
+dim(Land_Sp_YearsZone)
+
+#-----< Converter multidimensinal functional space matrix to data frame and assign presence for species pool
+#--- Functional space volume for all species
+Lan_FRic_year_pool<-convhulln(Land_coord_4D_SPool,"FA")$vol
+Lan_FRic_year_pool
+Lan_Pool_year_pcoa_0<-as.data.frame(Land_coord_4D_SPool) 
+Lan_Pool_year_pcoa_0$pres <- 1 # Presence for species pool
+Lan_Pool_year_pcoa_0
+dim(Lan_Pool_year_pcoa_0)
+
+#-----< Combine all previous matrices
+Land_Sp_YearsZone <- Land_Sp_Year[,-1]
+Land_Pool_year_pcoa<-cbind(Lan_Pool_year_pcoa_0, Land_Sp_YearsZone,Land_Stad.df[,c(1,4)]) 
+Land_Pool_year_pcoa$cod<- Codes
+
+#-------------------------<    Transparency function   >-----------------------#
+## Transparent colors
+
+  ## Make new color using input color as base and alpha set by transparency
+  t.col <- rgb(rgb.val[1], rgb.val[2], rgb.val[3],
+               max = 255,
+               alpha = (100 - percent) * 255 / 100,
+               names = name)
+  
+  ## Save the color
+  invisible(t.col)
+}
+## END
+TranspCol <- t_col("black", perc = 100, name = "lt.pink")
+
+#
+#-------------PLOT functional space for landed species---------------------------#
+
+#---------< 2021: Principal components 1 & 2 
+ 
+pdf(file="~/efc/R_Stat/2023_FD_Fisheries/Plots/FSpace_yr/L1_P1_2_FS_PCs_1_2name.pdf",
+    width=10, height = 11)
+
+plot(Land_Pool_year_pcoa$PC1, Land_Pool_year_pcoa$PC2, xlab = " ", ylab = " ", pch=1.2, las=1,
+     xlim = c(-0.3,0.55), ylim = c(-0.35,0.25),  
+     #xaxt="n", yaxt="n",
+     col=TranspCol, frame.plot = TRUE) #
+ordihull(Land_Pool_year_pcoa[,1:2], groups = Land_Pool_year_pcoa$pres==1, draw = "polygon",
+         alpha = 0.1,show.groups = TRUE,  border="black", col = "white", lwd=1, lty = 2)# alpha = 1/10,
+ordihull(Land_Pool_year_pcoa[,1:2], groups = Land_Pool_year_pcoa$x2021 > 0, lty = 0, draw = "polygon",
+         alpha = 0.1,show.groups = TRUE, col = "green") # YEAR
+points(L.Act_DNA$PC1, 
+       L.Act_DNA$PC2, cex= 1.2, col= "#e6e6e6", pch=20)# Actinopterygii
+points(L.Ela_DNA$PC1, 
+       L.Ela_DNA$PC2, cex= 1.2, col= "#e6e6e6", pch=17)# Elasmobranchii
+points(L.Act_LC$PC1, 
+       L.Act_LC$PC2, cex= 1.2, col= "#50bd17", pch=20)# Actinopterygii
+points(L.Ela_LC$PC1, 
+       L.Ela_LC$PC2, cex= 1.2, col= "#50bd17", pch=17)# Elasmobranchii
+points(L.Act_NT$PC1, 
+       L.Act_NT$PC2, cex= 1.2, col= "#98c20d", pch=20)# Actinopterygii
+points(L.Ela_NT$PC1, 
+       L.Ela_NT$PC2, cex= 1.2, col= "#98c20d", pch=17)# Elasmobranchii
+points(L.Act_THR$PC1, 
+       L.Act_THR$PC2, cex= 1.2, col= "#f28630", pch=20)# Actinopterygii
+points(L.Ela_THR$PC1, 
+       L.Ela_THR$PC2, cex= 1.2, col= "#f28630", pch=17)# Elasmobranchii
+text(Land_Pool_year_pcoa$PC1, 
+     Land_Pool_year_pcoa$PC2,
+     labels= L.dataSplit_spPool1,  # codes for landed species
+     pos= 3, offset= 0.1, col='gray22',cex=0.8) 
+abline(h=0, col="gray55", lty=2)
+abline(v=0, col="gray55", lty=2)
+
+dev.off()
