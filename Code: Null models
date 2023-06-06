@@ -1,0 +1,59 @@
+################################################################################
+#                                                                              #
+#              NULL MODELS AND STANDARDIZED EFFECT SIZE (SES)                  #
+#                                                                              #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+## NOTES:
+### Land_FD_year_SPool = dataframe containing the FD indices by year after
+###                      applying the multidimFD function 
+### Land_Mat2_01_ = biomass of catch matrix with years in the row and species in the column.
+
+#~~~~~~~~~~~~~~~~~~~ Example for the year 1980 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Supplementary Figure 11
+
+#-----< Set the number of replicates
+nbrep<-1000 
+
+#-----< Select the number of species reported in the landings in 1980
+x1980.Null.mod.Sp.comp<-Land_FD_year_SPool["x1980stand","Nb_sp"] 
+x1980.Null.mod.Sp.comp # Number of species
+
+#-----< Convert to presence-absence matrix   
+x1980.Mat_PA<-Land_Mat2_01_
+x1980.Mat_PA[x1980.Mat_PA>0]<-1
+str(x1980.Mat_PA)
+
+#-----< Create an empty matrix with specified dimensions to store the simulated data   
+x1980stand_H0<-matrix(0, nbrep, ncol(x1980.Mat_PA), dimnames=list(1:nbrep, colnames(x1980.Mat_PA) ) )
+for (k in 1:nbrep)
+		{
+  x1980stand_H0[k, sample(colnames(x1980.Mat_PA), x1980.Null.mod.Sp.comp) ]<-1 # Randomly sort the species
+		}
+
+#-----< Calculating functional diversity indices using simulated data 
+# load 'multidimFD' function
+FD_x1980stand_H0<-multidimFD(Land_coord_4D_SPool, x1980stand_H0,  check_species_pool=FALSE )
+FD_x1980stand_H0
+
+#-----< Compare observed and expected values under the null hypothesis (H0) using Standardized Effect Size (SES) and p-value 
+ES_FRic_x1980stand<- (Land_FD_year_SPool["x1980stand","FRic"]-mean(FD_x1980stand_H0[,"FRic"]) ) / sd(FD_x1980stand_H0[,"FRic"])
+SES_FRic_x1980stand 
+
+#--- Two tailed p-value
+p_val.1980 <-2*pnorm(q=abs(SES_FRic_x1980stand), lower.tail=FALSE) # two-tailed P-value
+p_val.1980
+
+
+#--------------- Plot histogram showing the distribution of simulated data, confidence intervals 
+								      and observed FRic---
+dfx1980<-as.data.frame(FD_x1980stand_H0)
+hist(dfx1980$FRic, 
+     main="1980",
+     xlab="",
+     ylab="",
+     xlim = c(0,1),
+     ylim = c(0,300),
+     col="gray80") #1980 FRic = 0.945
+abline(v=0.737375, col="red",lwd=0.5) # Observed FRic
+
+#---------------
