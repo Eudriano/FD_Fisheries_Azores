@@ -1,0 +1,100 @@
+################################################################################
+#                                                                              #
+# Calculate differences between pairs of two smooths                           #
+#  (Species pool and Actinopterygii)                                           #
+#                       #
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+## NOTES:
+### AE.Act.df = Data frame containg the functional divesity indices by year and 
+###             the factors Species pool and Actinopterygii.
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+# EXAMPLE: subtract the smooth for Species pool for each year from the 
+# smooth for the Actinopterygii to obtain differences in the smooths for Elasmobranchii
+# ---- Based on the  Rose et al. (2012) and Simpson (2017) ----    
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#-----< Calculate smooths for Species pool and Actinopterygii 
+library('mgcv') # required package
+GamFRic.year<-mgcv::gam(FRic ~ Factor + s(Year, by= Factor), data = AE.Act.df) 
+
+#-----< Preparing data for smooth differences calculation
+FRic.pdat <- expand.grid(Year = seq(1980, 2021, length = 42),
+                         Factor = c('AE', 'Act'))
+FRic.xp <- predict(GamFRic.year, newdata = FRic.pdat, type = 'lpmatrix')
+
+#-----< Indentify which cols of FRic.xp relate to splines of interest
+FRic.c1 <- grepl('AE', colnames(FRic.xp))
+FRic.c2 <- grepl('Act', colnames(FRic.xp))
+
+#-----< Indentify which rows of FRic.xp relate to sites of interest
+FRic.r1 <- with(FRic.pdat, Factor == 'AE')
+FRic.r2 <- with(FRic.pdat, Factor == 'Act')
+
+#-----< FRic.difference rows of FRic.xp for data from comparison
+FRic.X <- FRic.xp[FRic.r1, ] - FRic.xp[FRic.r2, ]
+
+#-----< Zero out cols of FRic.X related to splines for other lochs
+FRic.X[, ! (FRic.c1 | FRic.c2)] <- 0
+
+#-----< Zero out the parametric cols
+FRic.X[, !grepl('^s\\(', colnames(FRic.xp))] <- 0
+
+FRic.dif <- FRic.X %*% coef(GamFRic.year)
+FRic.se <- sqrt(rowSums((FRic.X %*% vcov(GamFRic.year)) * FRic.X))
+
+#-----< Calculate confidence intervals
+FRic.crit <- qt(.975, df.residual(GamFRic.year))
+FRic.upr <- FRic.dif + (FRic.crit * FRic.se)
+FRic.lwr <- FRic.dif - (FRic.crit * FRic.se)
+
+#-----< FUNCTION: differences in smooth functions
+smooth_FRic.diff <- function(model, newdata, f1, f2, var, alpha = 0.05,
+                             unconditional = FALSE) {
+  FRic.xp <- predict(model, newdata = newdata, type = 'lpmatrix')
+  FRic.c1 <- grepl(f1, colnames(FRic.xp))
+  FRic.c2 <- grepl(f2, colnames(FRic.xp))
+  FRic.r1 <- newdata[[var]] == f1
+  FRic.r2 <- newdata[[var]] == f2
+  FRic.X <- FRic.xp[FRic.r1, ] - FRic.xp[FRic.r2, ]
+  FRic.X[, ! (FRic.c1 | FRic.c2)] <- 0
+  FRic.X[, !grepl('^s\\(', colnames(FRic.xp))] <- 0
+  FRic.dif <- FRic.X %*% coef(model)
+  FRic.se <- sqrt(rowSums((FRic.X %*% vcov(model, unconditional = unconditional)) * FRic.X))
+  FRic.crit <- qt(alpha/2, df.residual(model), lower.tail = FALSE)
+  FRic.upr <- FRic.dif + (FRic.crit * FRic.se)
+  FRic.lwr <- FRic.dif - (FRic.crit * FRic.se)
+  data.frame(pair = paste(f1, f2, FRic.sep = '-'),
+             FRic.diff = FRic.dif,
+             FRic.se = FRic.se,
+             upper = FRic.upr,
+             lower = FRic.lwr)
+}
+
+
+#-----< Plot GAMs - FRic_Elasmobranchii
+FRic.comp.AE.ACT <- smooth_FRic.diff(GamFRic.year, FRic.pdat, 'AE', 'Act', 'Factor')# Correct
+FRic.comp <- cbind(Year = seq(1980, 2021, length = 42),
+                   rbind(FRic.comp.AE.ACT))
+library('ggplot2')
+p.FRic.diff.AE.Act<-ggplot(FRic.comp, aes(x = Year, y = FRic.diff, group = pair)) +
+  FD_theme()+
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, 
+              colour= NA,fill="#6fff79") +
+  geom_line(size=1, color="green") +
+  coord_cartesian(ylim = c(-0.3,0.3)) +
+  scale_x_continuous(minor_breaks = seq(1980, 2021, 1),
+                     breaks = seq(1980, 2021, 5))+
+  scale_y_continuous(minor_breaks = seq(-0.3,0.3, 0.8),
+                     breaks = seq(-0.25,0.25, 0.5))+
+  scale_fill_manual(values = "#6fff79") +
+  labs(x = NULL, y = 'Difference in FRic trend') +
+  theme(legend.position = "none") +
+  geom_hline(yintercept = 0, colour="blue",alpha = 1/10)
+
+p.FRic.diff.AE.Act
+
+# References
+# Rose, N.L., Yang, H., Turner, S.D., Simpson, G.L. (2012). An assessment of the mechanisms for the transfer of lead and mercury from atmospherically contaminated organic soils to lake sediments with particular reference to Scotland, UK. Geochimica et Cosmochimica Acta, 82, 113-135.
+# Simpson, G. (2017). Comparing smooths in factor-smooth interactions: by-variable smooths. Available at: https://fromthebottomoftheheap.net/2017/10/10/difference-splines-i/
